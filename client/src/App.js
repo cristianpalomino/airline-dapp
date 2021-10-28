@@ -9,24 +9,96 @@ class App extends Component {
 
   state = {
     web3: null,
-    accounts: null,
+    accounts: [],
     contract: null,
-    flights: []
+    flights: [],
+    myFlights: []
   };
+
+  mapAccounts = (items) => {
+    let accounts = [];
+    items.forEach((item) => {
+      accounts.push({
+        address: item,
+        balance: async () => {
+          const balance = await this.state.web3.eth.getBalance(item);
+          return this.state.web3.utils.fromWei(balance, 'ether');
+        }
+      })
+    });
+    this.setState({ accounts: accounts });
+  }
+
+  mapFlights = async () => {
+    const count = await this.state.contract.methods.totalFlights().call();
+    let flights = [];
+    for (let i = 0; i < count; i++) {
+      const flight = await this.state.contract.methods.flights(i).call();
+      const name = flight[0];
+      const price = flight[1];
+      flights.push({
+        name: name,
+        wei: price,
+        price: () => {
+          return this.state.web3.utils.fromWei(price, 'ether');
+        }
+      });
+    }
+    this.setState({ flights: flights });
+  }
+
+  mapMyFlights = async () => {
+    const account = this.state.accounts[0].address;
+    const count = await this.state.contract.methods.customerTotalFlights(account).call();
+    let flights = [];
+    for (let i = 0; i < count; i++) {
+      const flight = await this.state.contract.methods.customerFlights(account, i).call();
+      const name = flight[0];
+      const price = flight[1];
+      flights.push({
+        name: name,
+        wei: price,
+        price: () => {
+          return this.state.web3.utils.fromWei(price, 'ether');
+        }
+      });
+    }
+    this.setState({ myFlights: flights });
+  }
+
+  buyFlight = async (index, value) => {
+    const account = this.state.accounts[0].address;
+    await this.state.contract.methods.buyFlight(index).send({ from: account, value: value });
+  }
+
+  addBuyFlightEventListener = () => {
+    this.state.contract.events.FlightPurchased().on('data', async (event) => {
+      console.log(event);
+      await this.mapMyFlights();
+    });
+  }
+
+  addAccountsChangedListener = () => {
+    window.ethereum.on('accountsChanged', async (items) => {
+      this.mapAccounts(items);
+      await this.mapMyFlights();
+    });
+  }
 
   componentDidMount = async () => {
     try {
       const web3 = await getWeb3();
-      const accounts = await web3.eth.getAccounts();
       const networkId = await web3.eth.net.getId();
       const deployedNetwork = AirlineContract.networks[networkId];
-
       const instance = new web3.eth.Contract(
         AirlineContract.abi,
         deployedNetwork && deployedNetwork.address,
       );
 
-      this.setState({ web3, accounts, contract: instance }, this.runExample);
+      const items = await web3.eth.getAccounts();
+      this.mapAccounts(items);
+
+      this.setState({ web3, contract: instance }, this.load);
     } catch (error) {
       alert(
         `Failed to load web3, accounts, or contract. Check console for details.`,
@@ -35,24 +107,11 @@ class App extends Component {
     }
   };
 
-  runExample = async () => {
-    const { contract } = this.state;
-
-    const count = await contract.methods.totalFlights().call();
-    let items = [];
-
-    for (let i = 0; i < count; i++) {
-      const flight = await contract.methods.flights(i).call();
-      const name = flight[0];
-      const price = flight[1];
-      const item = {
-        name: name,
-        price: price
-      };
-      items.push(item)
-    }
-
-    this.setState({ flights: items });
+  load = async () => {
+    await this.mapFlights();
+    await this.mapMyFlights();
+    this.addAccountsChangedListener();
+    this.addBuyFlightEventListener();
   };
 
   render() {
@@ -71,10 +130,10 @@ class App extends Component {
         <div className="col-lg-12 mt-5">
           <div className="row">
             <div className="col-lg-6">
-              <Balance />
+              <Balance accounts={this.state.accounts} myFlights={this.state.myFlights} />
             </div>
             <div className="col-lg-6">
-              <Flights flights={this.state.flights} />
+              <Flights flights={this.state.flights} buyFlight={this.buyFlight} />
             </div>
           </div>
         </div>
