@@ -3,7 +3,7 @@ pragma solidity >=0.4.21 <0.7.0;
 
 contract Airline {
 
-    uint etherPerPoint = 0.5 ether;
+    uint public etherPerPoint = 0.5 ether;
     
     struct Flight {
 

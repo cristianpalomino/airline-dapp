@@ -12,7 +12,25 @@ class App extends Component {
     accounts: [],
     contract: null,
     flights: [],
-    myFlights: []
+    myFlights: [],
+    loyalty: {
+      points: async () => {
+        const account = this.state.accounts[0].address;
+        const customer = await this.state.contract.methods.customers(account).call();
+        const points = customer[0];
+        return points;
+      },
+      ether: async () => {
+        const account = this.state.accounts[0].address;
+        const ether = await this.state.contract.methods.getRefundableEther().call({from: account});
+        return this.state.web3.utils.fromWei(ether, 'ether');
+      },
+      redeem: async () => {
+        const account = this.state.accounts[0].address;
+        await this.state.contract.methods.redeemLoyaltyPoints().send({from: account, value: 0});
+        this.setState({ ...this.state.accounts, accounts: this.state.accounts })
+      }
+    },
   };
 
   mapAccounts = (items) => {
@@ -30,6 +48,7 @@ class App extends Component {
   }
 
   mapFlights = async () => {
+    const account = this.state.accounts[0].address;
     const count = await this.state.contract.methods.totalFlights().call();
     let flights = [];
     for (let i = 0; i < count; i++) {
@@ -130,7 +149,7 @@ class App extends Component {
         <div className="col-lg-12 mt-5">
           <div className="row">
             <div className="col-lg-6">
-              <Balance accounts={this.state.accounts} myFlights={this.state.myFlights} />
+              <Balance accounts={this.state.accounts} myFlights={this.state.myFlights} loyalty={this.state.loyalty} />
             </div>
             <div className="col-lg-6">
               <Flights flights={this.state.flights} buyFlight={this.buyFlight} />

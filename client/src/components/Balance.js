@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import MyFlights from './MyFlights';
+import Loyalty from './Loyalty';
 
 const Balance = (props) => {
 
@@ -23,6 +24,7 @@ const Balance = (props) => {
                         <span className="badge bg-primary ">Balance: {balance} eth.</span>
                     </div>
                     <MyFlights myFlights={props.myFlights} />
+                    <Loyalty loyalty={props.loyalty} />
                 </p>
             </div>
         </div>
